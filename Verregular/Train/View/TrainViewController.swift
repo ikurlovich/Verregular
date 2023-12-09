@@ -21,6 +21,24 @@ final class TrainViewController: UIViewController {
     
     private lazy var contentView: UIView = UIView()
     
+    private lazy var countVerbsLabel: UILabel = {
+        let label = UILabel()
+        
+        label.font = .systemFont(ofSize: 14)
+        label.textColor = .gray
+        
+        return label
+    }()
+    
+    private lazy var scoreVerbsLabel: UILabel = {
+        let label = UILabel()
+        
+        label.font = .systemFont(ofSize: 14)
+        label.textColor = .gray
+        
+        return label
+    }()
+    
     private lazy var infinitiveLabel: UILabel = {
         let label = UILabel()
         
@@ -81,8 +99,21 @@ final class TrainViewController: UIViewController {
         return button
     }()
     
-    // MARK: - Properties
+    private lazy var skipButton: UIButton = {
+        let button = UIButton()
+        
+        button.layer.cornerRadius = 10
+        button.backgroundColor = .systemGray5
+        button.setTitle("Skip".localized, for: .normal)
+        button.setTitleColor(UIColor.black, for: .normal)
+        button.addTarget(self, action: #selector(skipAction), for: .touchUpInside)
+        
+        return button
+    }()
     
+    
+    // MARK: - Properties
+    private var score = 0
     private let edgeInsets = 30
     private let dataSource = IrregularVerbs.shared.selectedVerbs
     private var currentVerb: Verb? {
@@ -104,14 +135,20 @@ final class TrainViewController: UIViewController {
         title = "Train verbs".localized
         setupUI()
         hideKeyboardWhenTappedAround()
-        
-        infinitiveLabel.text = dataSource.first?.infinitive
+        showLabelInfinitiVerbs()
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
         registerForKeyboardNotification()
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        
+        scoreVerbsLabel.text = "Score".localized + ": \(score)"
+        countVerbsLabel.text = "Verbs".localized + ": \(count + 1)/\(dataSource.count)"
     }
     
     override func viewDidDisappear(_ animated: Bool) {
@@ -122,12 +159,55 @@ final class TrainViewController: UIViewController {
     
     // MARK: - Private methods
     @objc
+    private func skipAction() {
+        let alertController = UIAlertController(title: "Right answer".localized, message: "Past Simple: \(currentVerb?.pastSimple ?? "")" + "\n" + "Past Participle: \(currentVerb?.participle ?? "")", preferredStyle: .alert)
+        
+        let defaultAction = UIAlertAction(title: "OK", style: .default) { (action) in
+            if self.currentVerb?.infinitive == self.dataSource.last?.infinitive {
+                self.checkButton.backgroundColor = .systemGray5
+                self.checkButton.setTitle("Check".localized, for: .normal)
+                self.navigationController?.popViewController(animated: true)
+            } else {
+                self.count += 1
+                self.checkButton.backgroundColor = .systemGray5
+                self.checkButton.setTitle("Check".localized, for: .normal)
+            }
+        }
+        alertController.addAction(defaultAction)
+        
+        present(alertController, animated: true, completion: nil)
+    }
+    
+    private func showCheckAlert() {
+        let alertController = UIAlertController(title: "The training is over".localized, message: "Your account of the relevant responses".localized + ": \(score)", preferredStyle: .alert)
+        
+        let defaultAction = UIAlertAction(title: "OK", style: .default) { (action) in
+            self.navigationController?.popViewController(animated: true)
+        }
+        alertController.addAction(defaultAction)
+        
+        present(alertController, animated: true, completion: nil)
+    }
+    
+    private func showLabelInfinitiVerbs() {
+        if dataSource.first?.infinitive == nil {
+            infinitiveLabel.text = "Choose the verbs".localized
+        } else {
+            infinitiveLabel.text = dataSource.first?.infinitive
+        }
+    }
+    
+    @objc
     private func checkAction() {
         if checkAnswer() {
             if currentVerb?.infinitive == dataSource.last?.infinitive {
-                navigationController?.popViewController(animated: true)
+                score += 1
+                showCheckAlert()
             } else {
                 count += 1
+                score += 1
+                checkButton.backgroundColor = .systemGray5
+                checkButton.setTitle("Check".localized, for: .normal)
             }
         } else {
             checkButton.backgroundColor = .red
@@ -146,12 +226,15 @@ final class TrainViewController: UIViewController {
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
         contentView.addSubviews([
+            countVerbsLabel,
+            scoreVerbsLabel,
             infinitiveLabel,
             pastSimpleLabel,
             pastSimpleTextField,
             participleLabel,
             participleTextField,
-            checkButton])
+            checkButton,
+            skipButton])
         
         setupConstraints()
     }
@@ -163,6 +246,16 @@ final class TrainViewController: UIViewController {
         
         contentView.snp.makeConstraints { make in
             make.size.edges.equalToSuperview()
+        }
+        
+        countVerbsLabel.snp.makeConstraints { make in
+            make.bottom.equalTo(infinitiveLabel.snp.top).offset(-50)
+            make.leading.equalToSuperview().inset(30)
+        }
+        
+        scoreVerbsLabel.snp.makeConstraints { make in
+            make.bottom.equalTo(infinitiveLabel.snp.top).offset(-50)
+            make.trailing.equalToSuperview().inset(30)
         }
         
         infinitiveLabel.snp.makeConstraints { make in
@@ -192,6 +285,11 @@ final class TrainViewController: UIViewController {
         
         checkButton.snp.makeConstraints { make in
             make.top.equalTo(participleTextField.snp.bottom).offset(100)
+            make.trailing.leading.equalToSuperview().inset(edgeInsets)
+        }
+        
+        skipButton.snp.makeConstraints { make in
+            make.top.equalTo(checkButton.snp.bottom).offset(20)
             make.trailing.leading.equalToSuperview().inset(edgeInsets)
         }
     }
